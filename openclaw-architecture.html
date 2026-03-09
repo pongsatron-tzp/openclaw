@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw — Safe Integration Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d0d0d; color: #e8e8e8; font-family: 'Segoe UI', system-ui, sans-serif; padding: 32px 24px; min-height: 100vh; }
+  h1 { font-size: 1.6rem; font-weight: 700; color: #ff6b35; margin-bottom: 4px; letter-spacing: -0.5px; }
+  .subtitle { color: #888; font-size: 0.85rem; margin-bottom: 32px; }
+
+  .flow-container { display: flex; flex-direction: column; gap: 0; }
+
+  .layer {
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    padding: 20px 24px;
+    position: relative;
+    background: #141414;
+  }
+  .layer-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .nodes { display: flex; flex-wrap: wrap; gap: 10px; }
+  .node {
+    background: #1c1c1c;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 130px;
+  }
+  .node-title { font-weight: 600; color: #f0f0f0; font-size: 0.8rem; }
+  .node-sub { color: #666; font-size: 0.72rem; }
+  .node-badge {
+    display: inline-block;
+    font-size: 0.62rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-top: 4px;
+    width: fit-content;
+  }
+  .badge-free { background: #1a3a1a; color: #4caf50; border: 1px solid #2d5a2d; }
+  .badge-safe { background: #1a2a3a; color: #64b5f6; border: 1px solid #2d4a6a; }
+  .badge-warn { background: #3a2a1a; color: #ffb74d; border: 1px solid #6a4a2d; }
+  .badge-db { background: #2a1a3a; color: #ce93d8; border: 1px solid #4a2d6a; }
+
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0;
+    color: #444;
+    font-size: 0.75rem;
+    gap: 8px;
+  }
+  .arrow-line { flex: 1; max-width: 200px; height: 1px; background: #2a2a2a; }
+  .arrow-label { color: #555; font-size: 0.7rem; }
+
+  /* colors per layer */
+  .layer-input .layer-title { color: #64b5f6; }
+  .layer-input .dot { background: #64b5f6; }
+  .layer-input { border-color: #1a2d4a; }
+
+  .layer-skill .layer-title { color: #ff6b35; }
+  .layer-skill .dot { background: #ff6b35; }
+  .layer-skill { border-color: #4a2a1a; }
+
+  .layer-ai .layer-title { color: #a5d6a7; }
+  .layer-ai .dot { background: #a5d6a7; }
+  .layer-ai { border-color: #1a3a1a; }
+
+  .layer-output .layer-title { color: #ce93d8; }
+  .layer-output .dot { background: #ce93d8; }
+  .layer-output { border-color: #2a1a3a; }
+
+  .layer-security .layer-title { color: #ffb74d; }
+  .layer-security .dot { background: #ffb74d; }
+  .layer-security { border-color: #3a2a1a; }
+
+  /* Code block */
+  .code-section { margin-top: 32px; }
+  .code-title { font-size: 0.8rem; font-weight: 700; color: #ff6b35; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .code-tabs { display: flex; gap: 4px; margin-bottom: 0; }
+  .tab {
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    background: #1c1c1c;
+    border: 1px solid #2a2a2a;
+    border-bottom: none;
+    color: #666;
+    transition: all 0.2s;
+  }
+  .tab.active { background: #1e1e1e; color: #f0f0f0; border-color: #3a3a3a; }
+  .code-box {
+    background: #1e1e1e;
+    border: 1px solid #3a3a3a;
+    border-radius: 0 8px 8px 8px;
+    padding: 20px;
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .cm { color: #6a9955; }
+  .ck { color: #569cd6; }
+  .cs { color: #ce9178; }
+  .cf { color: #dcdcaa; }
+  .cn { color: #9cdcfe; }
+
+  .security-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .sec-card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .sec-icon { font-size: 1.2rem; margin-bottom: 6px; }
+  .sec-title { font-size: 0.78rem; font-weight: 700; color: #ffb74d; margin-bottom: 4px; }
+  .sec-desc { font-size: 0.72rem; color: #888; line-height: 1.5; }
+
+  .panel-code { display: none; }
+  .panel-code.active { display: block; }
+</style>
+</head>
+<body>
+
+<h1>🦞 OpenClaw — Safe Integration Architecture</h1>
+<p class="subtitle">Free API → Summarize → Newsletter → Database (one-way write)</p>
+
+<div class="flow-container">
+
+  <!-- INPUT LAYER -->
+  <div class="layer layer-input">
+    <div class="layer-title"><div class="dot"></div>1. INPUT SOURCES (อ่านข้อมูล)</div>
+    <div class="nodes">
+      <div class="node">
+        <div class="node-title">📰 RSS / Newsletter</div>
+        <div class="node-sub">ดึง feed ข่าว / email</div>
+        <span class="node-badge badge-free">Free</span>
+      </div>
+      <div class="node">
+        <div class="node-title">🌐 Free APIs</div>
+        <div class="node-sub">NewsAPI, HackerNews, Reddit, arXiv</div>
+        <span class="node-badge badge-free">Free tier</span>
+      </div>
+      <div class="node">
+        <div class="node-title">📬 Email/IMAP</div>
+        <div class="node-sub">Gmail / Outlook newsletter inbox</div>
+        <span class="node-badge badge-safe">Read-only</span>
+      </div>
+      <div class="node">
+        <div class="node-title">💬 Chat Trigger</div>
+        <div class="node-sub">Telegram / Discord command</div>
+        <span class="node-badge badge-safe">Manual</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">
+    <div class="arrow-line"></div>
+    <span class="arrow-label">⬇ ส่งเข้า Skill</span>
+    <div class="arrow-line"></div>
+  </div>
+
+  <!-- SKILL LAYER -->
+  <div class="layer layer-skill">
+    <div class="layer-title"><div class="dot"></div>2. OPENCLAW SKILLS (ตัวประมวลผล)</div>
+    <div class="nodes">
+      <div class="node">
+        <div class="node-title">🔍 fetch-sources</div>
+        <div class="node-sub">ดึงข้อมูลจาก APIs/RSS</div>
+        <span class="node-badge badge-safe">HTTP GET only</span>
+      </div>
+      <div class="node">
+        <div class="node-title">✍️ summarize</div>
+        <div class="node-sub">สรุปผ่าน AI model</div>
+        <span class="node-badge badge-safe">No external write</span>
+      </div>
+      <div class="node">
+        <div class="node-title">📋 format-newsletter</div>
+        <div class="node-sub">จัดรูปแบบ Markdown/HTML</div>
+        <span class="node-badge badge-safe">Transform only</span>
+      </div>
+      <div class="node">
+        <div class="node-title">💾 save-to-db</div>
+        <div class="node-sub">INSERT เท่านั้น ไม่มี DELETE/UPDATE</div>
+        <span class="node-badge badge-warn">One-way write</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">
+    <div class="arrow-line"></div>
+    <span class="arrow-label">⬇ ส่งผลลัพธ์</span>
+    <div class="arrow-line"></div>
+  </div>
+
+  <!-- OUTPUT LAYER -->
+  <div class="layer layer-output">
+    <div class="layer-title"><div class="dot"></div>3. OUTPUT (ปลายทาง)</div>
+    <div class="nodes">
+      <div class="node">
+        <div class="node-title">🗄️ Database</div>
+        <div class="node-sub">PostgreSQL / Supabase / SQLite</div>
+        <span class="node-badge badge-db">INSERT only user</span>
+      </div>
+      <div class="node">
+        <div class="node-title">📤 Notification</div>
+        <div class="node-sub">แจ้งเตือนใน Telegram/Discord</div>
+        <span class="node-badge badge-safe">Confirm saved</span>
+      </div>
+      <div class="node">
+        <div class="node-title">📁 File Archive</div>
+        <div class="node-sub">บันทึก .md/.json สำรอง</div>
+        <span class="node-badge badge-safe">Local only</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SECURITY SECTION -->
+<div style="margin-top: 32px;">
+  <div class="layer layer-security">
+    <div class="layer-title"><div class="dot"></div>🔒 SECURITY PRINCIPLES (หลักความปลอดภัย)</div>
+    <div class="security-grid">
+      <div class="sec-card">
+        <div class="sec-icon">🔑</div>
+        <div class="sec-title">API Keys ใน .env</div>
+        <div class="sec-desc">ไม่ hardcode ใน skill file — ใช้ env vars เท่านั้น ไม่ commit .env</div>
+      </div>
+      <div class="sec-card">
+        <div class="sec-icon">👤</div>
+        <div class="sec-title">DB User จำกัดสิทธิ์</div>
+        <div class="sec-desc">สร้าง user แยกสำหรับ OpenClaw — ให้แค่ INSERT ไม่ให้ DROP/DELETE</div>
+      </div>
+      <div class="sec-card">
+        <div class="sec-icon">🚦</div>
+        <div class="sec-title">Skill Boundary</div>
+        <div class="sec-desc">แต่ละ Skill ทำได้แค่งานเดียว ไม่ให้ Skill เข้าถึง credentials ข้าม scope</div>
+      </div>
+      <div class="sec-card">
+        <div class="sec-icon">📵</div>
+        <div class="sec-title">No Bidirectional DB</div>
+        <div class="sec-desc">OpenClaw อ่าน DB ไม่ได้ — write-only ป้องกัน data leakage ผ่าน AI</div>
+      </div>
+      <div class="sec-card">
+        <div class="sec-icon">🕐</div>
+        <div class="sec-title">Cron + Rate Limit</div>
+        <div class="sec-desc">รัน schedule แทน realtime polling ลด API call และป้องกัน loop</div>
+      </div>
+      <div class="sec-card">
+        <div class="sec-icon">📝</div>
+        <div class="sec-title">Audit Log</div>
+        <div class="sec-desc">ทุก INSERT มี timestamp + source_skill field ตรวจสอบย้อนหลังได้</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CODE SECTION -->
+<div class="code-section">
+  <div class="code-title">💻 Code Examples</div>
+  <div class="code-tabs">
+    <div class="tab active" onclick="showTab('skill')">fetch-summarize.skill.js</div>
+    <div class="tab" onclick="showTab('db')">save-to-db.skill.js</div>
+    <div class="tab" onclick="showTab('sql')">DB setup (SQL)</div>
+  </div>
+
+  <div id="panel-skill" class="panel-code active">
+    <div class="code-box"><span class="cm">// skills/fetch-summarize.skill.js</span>
+<span class="cm">// OpenClaw Skill — อ่าน API + สรุป (ไม่ write ข้อมูลใดๆ)</span>
+
+<span class="ck">export default</span> {
+  name: <span class="cs">"fetch-and-summarize"</span>,
+  description: <span class="cs">"Fetch newsletters/APIs and summarize with AI"</span>,
+  
+  <span class="cf">async</span> <span class="cf">run</span>({ ai, env }) {
+    <span class="cm">// ✅ READ ONLY — ดึงข้อมูลจาก free API</span>
+    <span class="ck">const</span> <span class="cn">res</span> = <span class="ck">await</span> fetch(
+      <span class="cs">`https://hacker-news.firebaseio.com/v0/topstories.json`</span>
+    );
+    <span class="ck">const</span> <span class="cn">ids</span> = (<span class="ck">await</span> res.json()).slice(<span class="cs">0</span>, <span class="cs">5</span>);
+
+    <span class="cm">// ดึงรายละเอียดแต่ละข่าว</span>
+    <span class="ck">const</span> <span class="cn">stories</span> = <span class="ck">await</span> Promise.all(
+      ids.map(id => fetch(
+        <span class="cs">`https://hacker-news.firebaseio.com/v0/item/${id}.json`</span>
+      ).then(r => r.json()))
+    );
+
+    <span class="cm">// ✅ สรุปผ่าน AI (local — ไม่ส่งออกนอก)</span>
+    <span class="ck">const</span> <span class="cn">summary</span> = <span class="ck">await</span> ai.summarize(
+      stories.map(s => <span class="cs">`${s.title}: ${s.url}`</span>).join(<span class="cs">"\n"</span>),
+      { format: <span class="cs">"newsletter"</span>, lang: <span class="cs">"th"</span> }
+    );
+
+    <span class="cm">// ✅ return ออกไปให้ skill ถัดไปจัดการ (ไม่ write เอง)</span>
+    <span class="ck">return</span> { stories, summary, fetchedAt: <span class="ck">new</span> Date().toISOString() };
+  }
+};</div>
+  </div>
+
+  <div id="panel-db" class="panel-code">
+    <div class="code-box"><span class="cm">// skills/save-to-db.skill.js</span>
+<span class="cm">// One-way write — INSERT only, ใช้ user ที่จำกัดสิทธิ์</span>
+
+<span class="ck">import</span> { Pool } <span class="ck">from</span> <span class="cs">"pg"</span>;
+
+<span class="cm">// ✅ credentials จาก env ไม่ hardcode</span>
+<span class="ck">const</span> <span class="cn">db</span> = <span class="ck">new</span> Pool({
+  connectionString: process.env.<span class="cn">OPENCLAW_DB_URL</span>,
+  <span class="cm">// DB user นี้มีแค่ INSERT privilege เท่านั้น</span>
+});
+
+<span class="ck">export default</span> {
+  name: <span class="cs">"save-newsletter"</span>,
+  description: <span class="cs">"Save summarized newsletter to DB (INSERT only)"</span>,
+
+  <span class="cf">async</span> <span class="cf">run</span>({ input }) {
+    <span class="ck">const</span> { summary, stories, fetchedAt } = input;
+
+    <span class="cm">// ✅ Validate ก่อน insert — ป้องกัน injection</span>
+    <span class="ck">if</span> (<span class="ck">typeof</span> summary !== <span class="cs">"string"</span> || summary.length > <span class="cs">10000</span>) {
+      <span class="ck">throw new</span> Error(<span class="cs">"Invalid summary data"</span>);
+    }
+
+    <span class="cm">// ✅ Parameterized query — ป้องกัน SQL injection</span>
+    <span class="ck">await</span> db.query(
+      <span class="cs">`INSERT INTO newsletters 
+       (summary, story_count, fetched_at, source_skill)
+       VALUES ($1, $2, $3, $4)`</span>,
+      [summary, stories.length, fetchedAt, <span class="cs">"fetch-and-summarize"</span>]
+    );
+
+    <span class="cm">// ✅ ไม่มี SELECT, UPDATE, DELETE — write-only</span>
+    <span class="ck">return</span> { saved: <span class="ck">true</span>, at: fetchedAt };
+  }
+};</div>
+  </div>
+
+  <div id="panel-sql" class="panel-code">
+    <div class="code-box"><span class="cm">-- สร้าง table สำหรับรับข้อมูล</span>
+<span class="ck">CREATE TABLE</span> newsletters (
+  id          SERIAL        <span class="ck">PRIMARY KEY</span>,
+  summary     TEXT          <span class="ck">NOT NULL</span>,
+  story_count INT,
+  fetched_at  TIMESTAMPTZ   <span class="ck">DEFAULT NOW</span>(),
+  source_skill VARCHAR(100),
+  created_at  TIMESTAMPTZ   <span class="ck">DEFAULT NOW</span>()
+);
+
+<span class="cm">-- ✅ สร้าง user แยก — ให้ INSERT เท่านั้น</span>
+<span class="ck">CREATE USER</span> openclaw_writer
+  <span class="ck">WITH PASSWORD</span> <span class="cs">'strong-random-password'</span>;
+
+<span class="cm">-- ❌ ไม่ให้ SELECT (ป้องกัน data leak ผ่าน AI)</span>
+<span class="ck">REVOKE ALL ON</span> newsletters <span class="ck">FROM</span> openclaw_writer;
+
+<span class="cm">-- ✅ ให้แค่ INSERT</span>
+<span class="ck">GRANT INSERT ON</span> newsletters <span class="ck">TO</span> openclaw_writer;
+<span class="ck">GRANT USAGE ON SEQUENCE</span> newsletters_id_seq <span class="ck">TO</span> openclaw_writer;
+
+<span class="cm">-- ใน .env ของ OpenClaw</span>
+<span class="cm">-- OPENCLAW_DB_URL=postgres://openclaw_writer:password@localhost/mydb</span></div>
+  </div>
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['skill','db','sql'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.panel-code').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+</script>
+
+</body>
+</html>
